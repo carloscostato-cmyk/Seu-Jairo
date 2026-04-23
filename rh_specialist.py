@@ -202,10 +202,12 @@ def run_agent(session_label: str = "Ciclo Automático"):
         print(f"   → {len(new_jobs)} são novas (não vistas antes).")
 
         print("\n📨 Enviando relatório ao Telegram...")
-        notifier.send_job_report(
+        sent = notifier.send_job_report(
             jobs=new_jobs if new_jobs else matched_jobs[:5],
             session_label=session_label,
         )
+        if not sent:
+            raise RuntimeError("Falha ao enviar mensagem ao Telegram. Verifique TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID e logs da API.")
 
     except Exception as e:
         print(f"❌ Erro inesperado: {e}")

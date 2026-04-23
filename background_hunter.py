@@ -1,9 +1,8 @@
 import time
-from rh_specialist import RHDoctorAgent
+from rh_specialist import run_agent
 from submission_engine import SubmissionEngine
 
 def start_background_hunt():
-    doctor = RHDoctorAgent()
     engine = SubmissionEngine()
     
     print("--- MODO SUPER AGENTE ATIVADO (LOOP INFINITO) ---")
@@ -22,6 +21,9 @@ def start_background_hunt():
         for job in new_jobs:
             print(f"> Vaga detectada: {job['role']} na {job['company']}")
             engine.execute_backend_submission(job['company'], job['role'], "https://api.careers.com")
+
+        # Reaproveita o fluxo oficial de busca + notificação do agente principal
+        run_agent(session_label="Background Loop")
             
         print("Ciclo concluído. Próxima busca em 4 horas...")
         time.sleep(14400) # Aguarda 4 horas (14400 segundos)

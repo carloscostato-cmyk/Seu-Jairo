@@ -39,7 +39,7 @@ class TelegramNotifier:
             print(f"FALHA: Erro ao enviar mensagem para o Telegram: {e}")
             return False
 
-    def send_job_report(self, jobs: list, session_label: str = "Relatorio"):
+    def send_job_report(self, jobs: list, session_label: str = "Relatorio") -> bool:
         """Envia um relatorio formatado de vagas encontradas."""
         now = datetime.now().strftime("%d/%m/%Y %H:%M")
 
@@ -84,9 +84,9 @@ class TelegramNotifier:
             ]
             message = "\n".join(lines)
 
-        self._send(message)
+        return self._send(message)
 
-    def send_error_alert(self, error_msg: str):
+    def send_error_alert(self, error_msg: str) -> bool:
         """Envia alerta de erro para o Telegram."""
         now = datetime.now().strftime("%d/%m/%Y %H:%M")
         message = (
@@ -96,7 +96,7 @@ class TelegramNotifier:
             f"📊 <a href=\"{DASHBOARD_URL}\">Ver Dashboard</a>\n"
             f"<i>Verifique o GitHub Actions para mais detalhes.</i>"
         )
-        self._send(message)
+        return self._send(message)
 
 
 if __name__ == "__main__":
