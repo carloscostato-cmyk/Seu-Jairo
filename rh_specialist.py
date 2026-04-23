@@ -453,7 +453,11 @@ def build_run_summary(session_label: str, source_stats: dict, total_filtered: in
     }
 
 
-def run_agent(session_label: str = "Ciclo Automatico") -> dict:
+def run_agent(
+    session_label: str = "Ciclo Automatico",
+    notify_telegram: bool = True,
+    include_linkedin: bool | None = None,
+) -> dict:
     print("\n" + "=" * 60)
     print(f"AGENTE DE RH INICIADO - {session_label}")
     print(f"Horario: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} (UTC)")
@@ -470,14 +474,15 @@ def run_agent(session_label: str = "Ciclo Automatico") -> dict:
 
     try:
         print("Buscando vagas nas fontes publicas...")
+        linkedin_enabled = linkedin_source_enabled() if include_linkedin is None else include_linkedin
         raw_jobs_by_source = {
             "remotive": fetch_remotive_jobs(),
             "arbeitnow": fetch_arbeitnow_jobs(),
-            "linkedin": fetch_linkedin_jobs() if linkedin_source_enabled() else [],
+            "linkedin": fetch_linkedin_jobs() if linkedin_enabled else [],
             "freelance": fetch_remoteok_freelance_jobs(),
             "brasiltech": fetch_brasiltech_jobs(),
         }
-        if not linkedin_source_enabled():
+        if not linkedin_enabled:
             print("INFO: Fonte LinkedIn desativada (ENABLE_LINKEDIN_SOURCE=false).")
 
         total_raw = sum(len(v) for v in raw_jobs_by_source.values())
@@ -506,7 +511,7 @@ def run_agent(session_label: str = "Ciclo Automatico") -> dict:
         save_run_summary(summary)
 
         notification_status = "skipped"
-        if is_valid_telegram:
+        if notify_telegram and is_valid_telegram:
             print("Enviando relatorio ao Telegram...")
             sent = notifier.send_job_report(
                 jobs=new_jobs if new_jobs else matched_jobs[:5],
@@ -515,6 +520,8 @@ def run_agent(session_label: str = "Ciclo Automatico") -> dict:
             notification_status = "sent" if sent else "failed"
             if not sent:
                 print("WARN: Falha ao enviar mensagem ao Telegram (ciclo mantido como sucesso operacional).")
+        elif not notify_telegram:
+            print("INFO: Relatorio Telegram desativado para este ciclo (notify_telegram=False).")
         else:
             print("INFO: Relatorio Telegram nao enviado por configuracao invalida.")
 

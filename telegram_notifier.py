@@ -96,7 +96,7 @@ class TelegramNotifier:
         except ValueError:
             return False, "Resposta invalida (nao JSON) durante validacao do Telegram."
 
-    def send_job_report(self, jobs: list, session_label: str = "Relatorio") -> bool:
+    def send_job_report(self, jobs: list, session_label: str = "Relatorio", max_jobs: int = 10) -> bool:
         """Envia um relatorio formatado de vagas encontradas."""
         now = datetime.now().strftime("%d/%m/%Y %H:%M")
 
@@ -117,7 +117,7 @@ class TelegramNotifier:
                 f"🎯 <b>{len(jobs)} vaga(s) com match para o seu perfil:</b>",
                 "",
             ]
-            for i, job in enumerate(jobs[:8], 1):
+            for i, job in enumerate(jobs[:max_jobs], 1):
                 score       = job.get("match_score", 0)
                 score_emoji = "🔥" if score > 60 else "⭐"
                 source      = html.escape(str(job.get("source", "Agente")).capitalize())
@@ -156,22 +156,24 @@ class TelegramNotifier:
         )
         return self._send(message)
 
-    def send_management_report(self, report: dict) -> bool:
-        """Envia um resumo consolidado da operacao dos 3 times."""
+    def send_management_report(self, report: dict, max_jobs: int = 10) -> bool:
+        """Envia um resumo consolidado do ciclo com vagas clicaveis."""
         rh = report.get("rh", {})
         insights = report.get("insights", [])
         submitted = report.get("submitted", [])
+        jobs = rh.get("new_jobs", []) or rh.get("top_jobs", [])
 
         lines = [
-            f"🧠 <b>Gerente de Carreira | {report.get('session_label', 'Ciclo')}</b>",
+            f"🧠 <b>Agente de Carreira | {report.get('session_label', 'Ciclo')}</b>",
             f"🕐 {report.get('started_at', datetime.now().strftime('%d/%m/%Y %H:%M'))}",
             "",
-            "<b>Times em execucao:</b>",
-            f"1) RH Specialist: {rh.get('total_raw', 0)} brutas · {rh.get('total_matched', 0)} aderentes · {rh.get('total_new', 0)} novas",
-            f"2) Submission Team: {len(submitted)} submissao(oes)",
-            f"3) Career Coach: {len(insights)} insight(s)",
+            "<b>Resumo do ciclo:</b>",
+            f"• Vagas brutas: {rh.get('total_raw', 0)}",
+            f"• Vagas aderentes: {rh.get('total_matched', 0)}",
+            f"• Vagas novas: {rh.get('total_new', 0)}",
+            f"• Submissoes automaticas: {len(submitted)}",
             "",
-            "<b>Direcionamento do Coach:</b>",
+            "<b>Direcionamento:</b>",
         ]
 
         if insights:
@@ -180,11 +182,27 @@ class TelegramNotifier:
         else:
             lines.append("• Sem insights neste ciclo.")
 
-        lines += [
-            "",
-            f"📊 <a href=\"{DASHBOARD_URL}\">Abrir Dashboard ao Vivo</a>",
-            "<i>Operacao unificada concluida.</i>",
-        ]
+        if jobs:
+            lines += ["", "<b>Vagas para acao agora:</b>"]
+            for i, job in enumerate(jobs[:max_jobs], 1):
+                score = int(job.get("match_score", 0))
+                score_emoji = "🔥" if score > 60 else "⭐"
+                source = html.escape(str(job.get("source", "Agente")).capitalize())
+                location = html.escape(str(job.get("location", "")))
+                url = html.escape(str(job.get("url", "")), quote=True)
+                title = html.escape(str(job.get("title", "N/A")))
+                company = html.escape(str(job.get("company", "N/A")))
+                loc_str = f"\n   📍 {location}" if location else ""
+                url_str = f"\n   🔗 <a href=\"{url}\">Candidatar agora</a>" if url and url not in ("#", "") else ""
+                lines.append(
+                    f"{score_emoji} <b>{i}. {title}</b>\n"
+                    f"   🏢 {company}\n"
+                    f"   📡 {source} · 📊 Match: {score}%"
+                    f"{loc_str}"
+                    f"{url_str}\n"
+                )
+
+        lines += ["", f"📊 <a href=\"{DASHBOARD_URL}\">Abrir Dashboard ao Vivo</a>", "<i>Ciclo concluido.</i>"]
 
         return self._send("\n".join(lines))
 

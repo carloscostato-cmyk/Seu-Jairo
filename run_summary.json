@@ -1,66 +1,67 @@
 {
-  "generated_at": "",
-  "session_label": "",
-  "sources": {
-    "remotive": {
-      "label": "Remotive",
-      "collected": 0,
-      "accepted": 0,
-      "discarded": {
-        "invalid_url": 0,
-        "out_of_profile": 0,
-        "language_requirement": 0,
-        "low_match": 0
-      }
+    "generated_at": "2026-04-23 15:12:01",
+    "session_label": "Telegram | RH Specialist",
+    "linkedin_credentials_configured": false,
+    "sources": {
+        "remotive": {
+            "label": "Remotive",
+            "collected": 264,
+            "accepted": 252,
+            "discarded": {
+                "invalid_url": 0,
+                "out_of_profile": 0,
+                "language_requirement": 0,
+                "low_match": 12
+            }
+        },
+        "arbeitnow": {
+            "label": "Arbeitnow",
+            "collected": 400,
+            "accepted": 292,
+            "discarded": {
+                "invalid_url": 0,
+                "out_of_profile": 0,
+                "language_requirement": 0,
+                "low_match": 108
+            }
+        },
+        "linkedin": {
+            "label": "LinkedIn",
+            "collected": 1349,
+            "accepted": 322,
+            "discarded": {
+                "invalid_url": 0,
+                "out_of_profile": 253,
+                "language_requirement": 0,
+                "low_match": 774
+            }
+        },
+        "freelance": {
+            "label": "Freelance",
+            "collected": 22,
+            "accepted": 22,
+            "discarded": {
+                "invalid_url": 0,
+                "out_of_profile": 0,
+                "language_requirement": 0,
+                "low_match": 0
+            }
+        },
+        "brasiltech": {
+            "label": "BrasilTech",
+            "collected": 35,
+            "accepted": 2,
+            "discarded": {
+                "invalid_url": 0,
+                "out_of_profile": 25,
+                "language_requirement": 0,
+                "low_match": 8
+            }
+        }
     },
-    "arbeitnow": {
-      "label": "Arbeitnow",
-      "collected": 0,
-      "accepted": 0,
-      "discarded": {
-        "invalid_url": 0,
-        "out_of_profile": 0,
-        "language_requirement": 0,
-        "low_match": 0
-      }
-    },
-    "linkedin": {
-      "label": "LinkedIn",
-      "collected": 0,
-      "accepted": 0,
-      "discarded": {
-        "invalid_url": 0,
-        "out_of_profile": 0,
-        "language_requirement": 0,
-        "low_match": 0
-      }
-    },
-    "freelance": {
-      "label": "Freelance",
-      "collected": 0,
-      "accepted": 0,
-      "discarded": {
-        "invalid_url": 0,
-        "out_of_profile": 0,
-        "language_requirement": 0,
-        "low_match": 0
-      }
-    },
-    "brasiltech": {
-      "label": "BrasilTech",
-      "collected": 0,
-      "accepted": 0,
-      "discarded": {
-        "invalid_url": 0,
-        "out_of_profile": 0,
-        "language_requirement": 0,
-        "low_match": 0
-      }
+    "totals": {
+        "filtered": 890,
+        "saved": 844,
+        "new": 662
     }
-  },
-  "totals": {
-    "filtered": 0,
-    "saved": 0,
-    "new": 0
-  }
 }
