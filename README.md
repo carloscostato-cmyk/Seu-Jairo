@@ -8,11 +8,12 @@ O **Doutor em RH** é um agente de inteligência artificial desenvolvido para au
 
 ## 🚀 Funcionalidades de Elite
 
-- 🔍 **Busca Inteligente:** Varredura automática em portais como LinkedIn, Gupy e sites de carreira.
+- 🔍 **Busca Inteligente Multi-Fonte:** Varredura automática em Remotive, Arbeitnow, LinkedIn público (guest endpoint) e vagas freelance (RemoteOK).
+- 🇧🇷 **Foco Brasil + Perfil:** Priorização de vagas aderentes ao perfil de Carlos (Gerência de Projetos, TI, IA, Cybersecurity e Transformação Digital), incluindo buscas em português e contexto Brasil.
 - 🦾 **Auto-Apply (Back-end):** Realiza inscrições diretamente via API/ATS, ignorando a necessidade de navegação visual.
 - 📲 **Notificações em Tempo Real:** Integração via Telegram Bot para alertas de novas candidaturas.
 - 📅 **Relatórios Agendados:** Envio de resumos consolidados às 09:00, 13:00 e 18:00 (Brasília).
-- 📊 **Dashboard Técnico:** Interface para monitoramento de transações e logs de submissão.
+- 📊 **Dashboard Técnico com Busca:** Filtro por texto e fonte para localizar vagas rapidamente.
 
 ## 🛠️ Arquitetura Técnica
 
@@ -21,6 +22,12 @@ O sistema opera em uma arquitetura 100% Cloud-Native:
 2. **Automação (GitHub Actions):** Orquestração dos ciclos de trabalho a cada 4 horas.
 3. **Notificador (Telegram API):** Comunicação bidirecional com o usuário.
 4. **Persistência (JSON DB):** Armazenamento seguro do histórico de candidaturas.
+
+## ✅ Qualidade e Operação
+
+- Skill operacional versionada em [SKILL.md](SKILL.md).
+- Pipeline configurado para falhar quando a notificação no Telegram não for enviada (evita falso positivo).
+- Dashboard público para validação visual final: https://carloscostato-cmyk.github.io/Vagas/
 
 ## 👤 Desenvolvedor & Beneficiário
 **Carlos Costato** - Senior IT Project Manager & AI Specialist.

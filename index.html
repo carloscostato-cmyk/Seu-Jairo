@@ -116,8 +116,24 @@
     .section-header {
       display: flex; justify-content: space-between; align-items: center;
       margin-bottom: 16px;
+      gap: 14px;
+      flex-wrap: wrap;
     }
     .section-header h2 { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
+
+    .section-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .search-input, .search-select {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-family: 'Outfit', sans-serif;
+      font-size: .82rem;
+      outline: none;
+    }
+    .search-input { min-width: 230px; }
+    .search-input:focus, .search-select:focus { border-color: var(--border-glow); box-shadow: 0 0 0 2px rgba(0,242,255,.12); }
 
     /* ── Job cards ─────────────────────────────────────────────────── */
     .job-list { display: flex; flex-direction: column; gap: 12px; }
@@ -223,6 +239,7 @@
       .job-card { grid-template-columns: 44px 1fr; }
       .job-actions { flex-direction: row; flex-wrap: wrap; }
       .kpi-strip { grid-template-columns: 1fr 1fr; }
+      .search-input { min-width: 100%; }
     }
   </style>
 </head>
@@ -281,7 +298,14 @@
     <!-- Job list -->
     <div class="section-header">
       <h2>📋 Vagas Detectadas</h2>
-      <span id="job-count" style="font-size:.82rem;color:var(--text-dim)"></span>
+      <div class="section-tools">
+        <input id="search-input" class="search-input" type="search" placeholder="Buscar por cargo, empresa, local..." aria-label="Buscar vagas">
+        <select id="source-filter" class="search-select" aria-label="Filtrar por fonte">
+          <option value="all">Todas as fontes</option>
+        </select>
+        <button class="btn btn-outline" id="btn-clear-filters" type="button">Limpar</button>
+        <span id="job-count" style="font-size:.82rem;color:var(--text-dim)"></span>
+      </div>
     </div>
     <div class="job-list" id="job-list">
       <div class="state-box">
@@ -314,8 +338,12 @@
     const SOURCE_META = {
       remotive:  { label: 'Remotive',   cls: 'badge-source-remotive',  icon: '🌐' },
       arbeitnow: { label: 'Arbeitnow',  cls: 'badge-source-arbeitnow', icon: '🏢' },
+      linkedin:  { label: 'LinkedIn',   cls: 'badge-source-manual',    icon: '💼' },
+      freelance: { label: 'Freelance',  cls: 'badge-source-arbeitnow', icon: '🧑‍💻' },
       manual:    { label: 'Manual',     cls: 'badge-source-manual',    icon: '✍️'  },
     };
+
+    let allJobs = [];
 
     // Extrai o domínio de uma URL para usar no Clearbit Logo API
     function domainFromUrl(url) {
@@ -468,6 +496,52 @@
       document.getElementById('job-count').textContent   = `${jobs.length} vaga${jobs.length !== 1 ? 's' : ''}`;
     }
 
+    function populateSourceFilter(jobs) {
+      const select = document.getElementById('source-filter');
+      const selected = select.value || 'all';
+      const sources = [...new Set(jobs.map(j => (j.source || 'manual').toLowerCase()))].sort();
+
+      select.innerHTML = '<option value="all">Todas as fontes</option>';
+      sources.forEach(src => {
+        const meta = SOURCE_META[src] || { label: src };
+        const option = document.createElement('option');
+        option.value = src;
+        option.textContent = meta.label;
+        select.appendChild(option);
+      });
+
+      if ([...select.options].some(o => o.value === selected)) {
+        select.value = selected;
+      }
+    }
+
+    function applyFilters() {
+      const list = document.getElementById('job-list');
+      const q = (document.getElementById('search-input').value || '').trim().toLowerCase();
+      const src = (document.getElementById('source-filter').value || 'all').toLowerCase();
+
+      let filtered = allJobs.filter(job => {
+        const source = (job.source || 'manual').toLowerCase();
+        if (src !== 'all' && source !== src) return false;
+
+        if (!q) return true;
+        const text = `${job.title || ''} ${job.company || ''} ${job.location || ''} ${job.description || ''}`.toLowerCase();
+        return text.includes(q);
+      });
+
+      if (!filtered.length) {
+        updateKPIs(filtered);
+        list.innerHTML = `<div class="state-box">
+          <div class="state-icon">🔎</div>
+          <p>Nenhuma vaga encontrada com o filtro aplicado.</p>
+        </div>`;
+        return;
+      }
+
+      updateKPIs(filtered);
+      list.innerHTML = filtered.map(renderJobCard).join('');
+    }
+
     // Função principal: carrega e renderiza
     async function loadJobs() {
       const list    = document.getElementById('job-list');
@@ -484,6 +558,8 @@
         const jobs = await res.json();
 
         if (!Array.isArray(jobs) || jobs.length === 0) {
+          allJobs = [];
+          updateKPIs(allJobs);
           list.innerHTML = `<div class="state-box">
             <div class="state-icon">📭</div>
             <p>Nenhuma vaga registrada ainda. O agente ainda não rodou ou não encontrou vagas com match suficiente.</p>
@@ -491,8 +567,9 @@
         } else {
           // Ordena por match_score desc, depois por data
           jobs.sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
-          list.innerHTML = jobs.map(renderJobCard).join('');
-          updateKPIs(jobs);
+          allJobs = jobs;
+          populateSourceFilter(allJobs);
+          applyFilters();
         }
 
         const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -512,6 +589,14 @@
     }
 
     // Inicia ao carregar a página
+    document.getElementById('search-input').addEventListener('input', applyFilters);
+    document.getElementById('source-filter').addEventListener('change', applyFilters);
+    document.getElementById('btn-clear-filters').addEventListener('click', () => {
+      document.getElementById('search-input').value = '';
+      document.getElementById('source-filter').value = 'all';
+      applyFilters();
+    });
+
     loadJobs();
 
     // Auto-refresh a cada 5 minutos

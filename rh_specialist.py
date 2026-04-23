@@ -7,6 +7,8 @@ import os
 import json
 import requests
 from datetime import datetime
+from urllib.parse import quote_plus, urlparse
+from bs4 import BeautifulSoup
 from telegram_notifier import TelegramNotifier
 
 
@@ -56,6 +58,13 @@ CANDIDATE = {
 }
 
 APPLICATIONS_FILE = os.path.join(os.path.dirname(__file__), "applications.json")
+REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    )
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -65,10 +74,15 @@ APPLICATIONS_FILE = os.path.join(os.path.dirname(__file__), "applications.json")
 def fetch_remotive_jobs() -> list:
     """Busca vagas via API pública do Remotive.io (sem autenticação)."""
     jobs_found = []
-    search_terms = ["project manager", "IT manager", "cybersecurity", "AI manager", "digital transformation", "scrum master", "IT governance"]
+    search_terms = [
+        "project manager", "IT manager", "cybersecurity", "AI manager",
+        "digital transformation", "scrum master", "IT governance",
+        "gerente de projetos", "gerente de ti", "inteligencia artificial",
+        "freelance project manager", "contract it manager"
+    ]
     try:
         for kw in search_terms:
-            url = f"https://remotive.com/api/remote-jobs?search={kw.replace(' ', '+')}&limit=10"
+            url = f"https://remotive.com/api/remote-jobs?search={quote_plus(kw)}&limit=12"
             resp = requests.get(url, timeout=15)
             if resp.status_code == 200:
                 data = resp.json()
@@ -79,6 +93,7 @@ def fetch_remotive_jobs() -> list:
                         "url": job.get("url", ""),
                         "description": job.get("description", ""),
                         "source": "Remotive",
+                        "location": job.get("candidate_required_location", "Remote"),
                         "found_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     })
     except Exception as e:
@@ -90,21 +105,114 @@ def fetch_arbeitnow_jobs() -> list:
     """Busca vagas via API pública do Arbeitnow (sem autenticação)."""
     jobs_found = []
     try:
-        url = "https://www.arbeitnow.com/api/job-board-api?search=IT+project+manager"
-        resp = requests.get(url, timeout=15)
-        if resp.status_code == 200:
-            data = resp.json()
-            for job in data.get("data", []):
-                jobs_found.append({
-                    "title": job.get("title", ""),
-                    "company": job.get("company_name", ""),
-                    "url": job.get("url", ""),
-                    "description": job.get("description", ""),
-                    "source": "Arbeitnow",
-                    "found_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                })
+        searches = ["IT+project+manager", "cybersecurity", "digital+transformation", "scrum+master"]
+        for term in searches:
+            url = f"https://www.arbeitnow.com/api/job-board-api?search={term}"
+            resp = requests.get(url, timeout=15)
+            if resp.status_code == 200:
+                data = resp.json()
+                for job in data.get("data", []):
+                    jobs_found.append({
+                        "title": job.get("title", ""),
+                        "company": job.get("company_name", ""),
+                        "url": job.get("url", ""),
+                        "description": job.get("description", ""),
+                        "source": "Arbeitnow",
+                        "location": job.get("location", "Remote"),
+                        "found_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    })
     except Exception as e:
         print(f"⚠️  Arbeitnow fetch error: {e}")
+    return jobs_found
+
+
+def fetch_linkedin_jobs() -> list:
+    """Busca vagas públicas via endpoint guest do LinkedIn (sem autenticação)."""
+    jobs_found = []
+    keywords = [
+        "Senior IT Project Manager",
+        "Gerente de Projetos",
+        "Cybersecurity Manager",
+        "Head of IT",
+        "AI Project Manager",
+    ]
+
+    try:
+        for kw in keywords:
+            url = (
+                "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
+                f"?keywords={quote_plus(kw)}&location={quote_plus('Brasil')}&start=0"
+            )
+            resp = requests.get(url, headers=REQUEST_HEADERS, timeout=20)
+            if resp.status_code != 200:
+                continue
+
+            soup = BeautifulSoup(resp.text, "html.parser")
+            for card in soup.select("li"):
+                title_el = card.select_one("h3.base-search-card__title")
+                company_el = card.select_one("h4.base-search-card__subtitle")
+                link_el = card.select_one("a.base-card__full-link")
+                location_el = card.select_one("span.job-search-card__location")
+
+                title = title_el.get_text(" ", strip=True) if title_el else ""
+                company = company_el.get_text(" ", strip=True) if company_el else ""
+                job_url = link_el.get("href", "").strip() if link_el else ""
+                location = location_el.get_text(" ", strip=True) if location_el else "Brasil"
+                description = f"{title} {company} {location}"
+
+                if title and job_url:
+                    jobs_found.append({
+                        "title": title,
+                        "company": company,
+                        "url": job_url,
+                        "description": description,
+                        "source": "LinkedIn",
+                        "location": location,
+                        "found_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    })
+    except Exception as e:
+        print(f"⚠️  LinkedIn fetch error: {e}")
+
+    return jobs_found
+
+
+def fetch_remoteok_freelance_jobs() -> list:
+    """Busca vagas freelance/contract via API pública do RemoteOK."""
+    jobs_found = []
+    try:
+        resp = requests.get("https://remoteok.com/api", headers=REQUEST_HEADERS, timeout=20)
+        if resp.status_code != 200:
+            return jobs_found
+
+        data = resp.json()
+        for job in data:
+            if not isinstance(job, dict):
+                continue
+
+            title = job.get("position", "")
+            company = job.get("company", "")
+            tags = " ".join(job.get("tags", []))
+            desc = f"{job.get('description', '')} {tags}".lower()
+            url = job.get("url", "")
+            if url.startswith("/"):
+                url = f"https://remoteok.com{url}"
+
+            is_freelance = any(t in desc for t in ["freelance", "contract", "consult", "consultant"])
+            if not is_freelance:
+                continue
+
+            jobs_found.append({
+                "title": title,
+                "company": company,
+                "url": url,
+                "description": f"{job.get('description', '')} {tags}",
+                "source": "Freelance",
+                "location": job.get("location", "Remote"),
+                "found_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            })
+    except Exception as e:
+        print(f"⚠️  RemoteOK fetch error: {e}")
+
     return jobs_found
 
 
@@ -128,17 +236,41 @@ def calculate_match(title: str, description: str) -> int:
                 
     return min(score, 100)
 
+
+def is_profile_related(title: str, description: str) -> bool:
+    """Garante aderência mínima da vaga ao perfil-alvo."""
+    text = f"{title} {description}".lower()
+    return any(kw.lower() in text for kw in CANDIDATE["keywords"]) or any(
+        kw.lower() in text for kw in ["project manager", "gerente", "it", "cyber", "security", "ai", "transforma"]
+    )
+
+
+def is_valid_job_url(url: str) -> bool:
+    """Valida formato básico de URL para evitar links inválidos no dashboard."""
+    if not url or url in ("#", ""):
+        return False
+    try:
+        parsed = urlparse(url)
+        return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+    except Exception:
+        return False
+
 def filter_and_score(raw_jobs: list) -> list:
     """Filtra e pontua vagas, retornando apenas as relevantes."""
     scored = []
     for job in raw_jobs:
         # Descartar sumariamente vagas sem link válido
         url = job.get("url", "")
-        if not url or url == "#" or not url.startswith("http"):
+        if not is_valid_job_url(url):
+            continue
+
+        title = job.get("title", "")
+        description = job.get("description", "")
+        if not is_profile_related(title, description):
             continue
             
-        score = calculate_match(job["title"], job.get("description", ""))
-        if score >= 40:  # Match mínimo aceitável (equivale a umas 3-4 keywords fortes)
+        score = calculate_match(title, description)
+        if score >= 30:  # Match mínimo adaptado para fontes com descrição curta
             job["match_score"] = score
             scored.append(job)
     # Ordena do maior match para o menor
@@ -192,6 +324,8 @@ def run_agent(session_label: str = "Ciclo Automático"):
         raw_jobs = []
         raw_jobs += fetch_remotive_jobs()
         raw_jobs += fetch_arbeitnow_jobs()
+        raw_jobs += fetch_linkedin_jobs()
+        raw_jobs += fetch_remoteok_freelance_jobs()
         print(f"   → {len(raw_jobs)} vagas brutas coletadas.")
 
         print("📊 Filtrando e pontuando vagas para o perfil do Carlos...")
