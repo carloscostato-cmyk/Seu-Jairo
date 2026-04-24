@@ -46,10 +46,6 @@ CANDIDATE = {
 }
 
 DISALLOWED_LANGUAGE_PATTERNS = [
-    "fluent english required",
-    "advanced english required",
-    "business fluent english",
-    "professional english required",
     "native english",
     "english is mandatory",
     "mandatory english",
@@ -58,9 +54,7 @@ DISALLOWED_LANGUAGE_PATTERNS = [
     "english proficiency c1",
     "english proficiency c2",
     "bilingual mandatory",
-    "must be fluent in english",
     "ingles fluente obrigatorio",
-    "ingles avancado obrigatorio",
     "ingles obrigatorio",
     "ingles e obrigatorio",
 ]
@@ -462,14 +456,43 @@ def fetch_catho_jobs() -> list:
 def calculate_match(title: str, description: str) -> int:
     score = 0
     text = f"{title} {description}".lower()
+    
+    # Keywords de alto peso (nível sênior/especialista)
+    senior_keywords = ["senior", "project manager", "cybersecurity", "ia", "ai", "governanca", "governance", "head", "director", "manager", "gerente", "lead", "líder"]
+    
+    # Keywords médio peso (tecnologias específicas)
+    tech_keywords = ["power platform", "power bi", "power automate", "microsoft 365", "sharepoint", "rpa", "automacao", "business intelligence", "analytics"]
+    
+    # Keywords baixo peso (conceitos gerais)
+    general_keywords = ["transformacao digital", "digital transformation", "agile", "scrum", "kanban", "itil", "cobit", "pmbok", "sla", "kpi", "roi"]
+    
     for kw in CANDIDATE["score_keywords"]:
         kw_l = kw.lower()
         if kw_l in text:
-            if kw_l in ["senior", "project manager", "cybersecurity", "ia", "ai", "governanca", "governance", "head"]:
+            if kw_l in senior_keywords:
                 score += 15
-            else:
+            elif kw_l in tech_keywords:
+                score += 12
+            elif kw_l in general_keywords:
                 score += 8
-    return min(score, 100)
+            else:
+                score += 5
+    
+    # Bônus para vagas no Brasil
+    if any(hint in text for hint in BRAZIL_LOCATION_HINTS):
+        score += 10
+    
+    # Penalidade para vagas genéricas/junior
+    junior_indicators = ["junior", "trainee", "estágio", "intern", "entry level", "0-2 years", "iniciante"]
+    if any(indicator in text for indicator in junior_indicators):
+        score -= 20
+    
+    # Penalidade para vagas muito específicas de outros países (exceto se permitir home office)
+    non_brazil_indicators = ["europe", "usa", "uk", "canada", "australia", "asia", "germany", "netherlands"]
+    if any(indicator in text for indicator in non_brazil_indicators) and "remote" not in text:
+        score -= 15
+    
+    return min(max(score, 0), 100)
 
 
 def is_profile_related(title: str, description: str) -> bool:

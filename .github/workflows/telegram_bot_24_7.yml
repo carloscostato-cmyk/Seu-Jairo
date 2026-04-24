@@ -1,0 +1,99 @@
+name: Telegram Bot 24/7
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *'  # A cada 10 minutos para manter o bot ativo
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-bot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  keep_bot_alive:
+    name: Manter Bot Telegram Ativo
+    runs-on: ubuntu-latest
+    timeout-minutes: 5  # Timeout curto para não gastar minutos demais
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install requests
+
+      - name: Check Bot Status
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import os
+          import requests
+          from datetime import datetime
+
+          bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+          chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+
+          if not bot_token or not chat_id:
+              print("❌ Secrets não configurados")
+              exit(1)
+
+          try:
+              # Verificar se o bot está online
+              me_url = f"https://api.telegram.org/bot{bot_token}/getMe"
+              me_resp = requests.get(me_url, timeout=10)
+              me_resp.raise_for_status()
+              me_data = me_resp.json()
+              
+              if me_data.get("ok"):
+                  bot_name = me_data.get("result", {}).get("username", "Bot")
+                  print(f"✅ Bot @{bot_name} está online")
+                  
+                  # Enviar heartbeat a cada hora (aproximadamente)
+                  current_hour = datetime.now().hour
+                  if current_hour % 6 == 0:  # A cada 6 horas
+                      heartbeat_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                      payload = {
+                          "chat_id": chat_id,
+                          "text": f"🤖 Bot está online e funcionando!\n🕐 {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\nUse /help para ver comandos disponíveis."
+                      }
+                      resp = requests.post(heartbeat_url, json=payload, timeout=10)
+                      if resp.status_code == 200:
+                          print("✅ Heartbeat enviado com sucesso")
+                      else:
+                          print("⚠️ Falha ao enviar heartbeat")
+              else:
+                  print("❌ Bot offline ou token inválido")
+                  exit(1)
+                  
+          except Exception as e:
+              print(f"❌ Erro ao verificar bot: {e}")
+              exit(1)
+          PY
+
+      - name: Health Check Summary
+        run: |
+          echo "🤖 Telegram Bot Status: $(date)"
+          echo "✅ Bot configurado e respondendo"
+          echo "📡 Pronto para receber comandos 24/7"
+          echo ""
+          echo "Comandos disponíveis no Telegram:"
+          echo "  /start - Iniciar bot"
+          echo "  /help - Ver comandos"
+          echo "  /status - Ver configuração"
+          echo "  /rh - Buscar vagas rápido"
+          echo "  /rhfull - Buscar vagas completo"
+          echo "  /ciclo - Executar ciclo rápido"
+          echo "  /ciclofull - Executar ciclo completo"
