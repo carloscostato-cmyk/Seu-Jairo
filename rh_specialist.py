@@ -11,6 +11,8 @@ import requests
 from bs4 import BeautifulSoup
 
 from telegram_notifier import TelegramNotifier
+from language_specialist_agent import LanguageSpecialistAgent
+from brazil_specialist_agent import BrazilSpecialistAgent
 
 
 CANDIDATE = {
@@ -338,7 +340,10 @@ def fetch_brasiltech_jobs() -> list:
 
 def fetch_gupy_jobs() -> list:
     jobs_found = []
-    search_terms = ["gerente de projetos", "gerente de ti", "cybersecurity", "transformacao digital"]
+    # Usar agente especialista para termos em português
+    brazil_agent = BrazilSpecialistAgent()
+    search_terms = brazil_agent.get_search_terms_for_source("gupy")
+    
     try:
         for kw in search_terms:
             url = f"https://portal.gupy.io/job-search/term?query={quote_plus(kw)}"
@@ -416,7 +421,10 @@ def fetch_indeed_jobs() -> list:
 
 def fetch_catho_jobs() -> list:
     jobs_found = []
-    search_terms = ["gerente-de-projetos", "gerente-de-ti", "cybersecurity", "transformacao-digital"]
+    # Usar agente especialista para termos em português
+    brazil_agent = BrazilSpecialistAgent()
+    search_terms = brazil_agent.get_search_terms_for_source("catho")
+    
     try:
         for term in search_terms:
             url = f"https://www.catho.com.br/vagas/{term}/"
@@ -491,6 +499,19 @@ def calculate_match(title: str, description: str) -> int:
     non_brazil_indicators = ["europe", "usa", "uk", "canada", "australia", "asia", "germany", "netherlands"]
     if any(indicator in text for indicator in non_brazil_indicators) and "remote" not in text:
         score -= 15
+    
+    # NOVO: Aplicar agentes especialistas
+    language_agent = LanguageSpecialistAgent()
+    brazil_agent = BrazilSpecialistAgent()
+    
+    # Score do agente de idioma (prioriza português)
+    language_score = language_agent.calculate_language_score(title, description)
+    score += language_score
+    
+    # Score do agente brasileiro (prioriza mercado brasileiro)
+    # Nota: company e url não disponíveis aqui, mas source pode ajudar
+    brazil_score = brazil_agent.calculate_brazil_score(title, description, "", "", "")
+    score += int(brazil_score * 0.3)  # Aplicar 30% do score brasileiro
     
     return min(max(score, 0), 100)
 
